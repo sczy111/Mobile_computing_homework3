@@ -1,5 +1,8 @@
 package com.example.greeing_card
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.Image
@@ -17,27 +20,42 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
-import androidx.compose.runtime.*
-import androidx.compose.animation.*
 
-import androidx.compose.ui.graphics.Color
 
+fun loadImageBitmap(context: Context, filename: String): Bitmap? {
+    return try {
+        BitmapFactory.decodeStream(context.openFileInput(filename))
+    } catch (e: Exception) {
+        e.printStackTrace()
+        null
+    }
+}
 
 @Composable
-fun Greeting(ca: GreetingCard) {
+fun Greeting(ca: GreetingCard,savedUsername: String?, imageFilename: String?, context: Context) {
+    val bitmapImage = imageFilename?.let { loadImageFromInternalStorage(context, it) }
+
     Row(modifier = Modifier.padding(all = 8.dp)) {
-        Image(
-            painter = painterResource(R.drawable.godrick_normal),
-            contentDescription = "Contact profile picture",
-            modifier = Modifier.size(70.dp).clip(CircleShape)
-                .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
-        )
+        // Display the image using the bitmap
+        bitmapImage?.let { bitmap ->
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = "Profile picture",
+                modifier = Modifier
+                    .size(70.dp)
+                    .clip(CircleShape)
+                    .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+            )
+        }
+
         Spacer(modifier = Modifier.width(8.dp))
 
         var isExpanded by remember { mutableStateOf(false) }
@@ -46,7 +64,7 @@ fun Greeting(ca: GreetingCard) {
         )
         Column(modifier = Modifier.clickable { isExpanded = !isExpanded }) {
             Text(
-                text = ca.name,
+                text = savedUsername ?: ca.name, // Use the saved username here
                 color = MaterialTheme.colorScheme.secondary,
                 style = MaterialTheme.typography.titleSmall
             )

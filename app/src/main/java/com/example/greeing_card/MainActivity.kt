@@ -17,9 +17,9 @@ class MainActivity : ComponentActivity() {
             GreeingcardTheme {
                 val navController = rememberNavController()
                 NavHost(navController = navController, startDestination = "home") {
-                    composable("home") { HomeView(navController) }
+                    composable("home") { HomeView(navController,this@MainActivity) }
                     composable("conversation") {
-                        Conversation(SampleData.conversationSample, navController)
+                        Conversation(SampleData.conversationSample, navController, this@MainActivity)
                     }
                     //composable("settings") { SettingsView(navController) }
                 }
