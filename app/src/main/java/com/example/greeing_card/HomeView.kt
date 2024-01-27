@@ -1,9 +1,16 @@
 package com.example.greeing_card
 
+import android.Manifest
 import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.graphics.ImageDecoder
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
@@ -22,6 +29,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -33,8 +41,18 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.unit.dp
+import androidx.core.app.ActivityCompat
+import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.navigation.NavController
+import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.WorkManager
+import androidx.work.Worker
+import androidx.work.WorkerParameters
 import coil.compose.rememberAsyncImagePainter
+import kotlin.math.abs
+
+
 
 fun saveImageToInternalStorage(context: Context, uri: Uri): String {
     val bitmap = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
@@ -83,6 +101,10 @@ fun loadImageFromInternalStorage(context: Context, filename: String): Bitmap? {
 
 @Composable
 fun HomeView(navController: NavController, context: Context) {
+    var xChange by remember { mutableStateOf(0f) }
+    var yChange by remember { mutableStateOf(0f) }
+    var zChange by remember { mutableStateOf(0f) }
+    var isNotificationEnabled by remember { mutableStateOf(false) }
     var username by remember { mutableStateOf("") }
     var bitmapImage by remember { mutableStateOf<ImageBitmap?>(null) }
 
@@ -145,6 +167,110 @@ fun HomeView(navController: NavController, context: Context) {
         } }) {
             Text("Go to Conversation")
         }
+        val notificationManagerCompat = NotificationManagerCompat.from(context)
+
+        val permissionResult = rememberLauncherForActivityResult(
+            ActivityResultContracts.RequestPermission()
+        ) { isGranted: Boolean ->
+            if (isGranted) {
+
+                val notification = createNotification(context)
+                notificationManagerCompat.notify(Constants.NOTIFICATION_ID, notification)
+            } else {
+
+            }
+        }
+
+
+
+        Button(onClick = {
+            isNotificationEnabled = true
+
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                if (ContextCompat.checkSelfPermission(
+                        context, Manifest.permission.POST_NOTIFICATIONS
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    val workRequest = OneTimeWorkRequestBuilder<NotificationWorker>().build()
+                    WorkManager.getInstance(context).enqueue(workRequest)
+                } else {
+                    permissionResult.launch(Manifest.permission.POST_NOTIFICATIONS)
+                }
+            } else {
+                val workRequest = OneTimeWorkRequestBuilder<NotificationWorker>().build()
+                WorkManager.getInstance(context).enqueue(workRequest)
+            }
+        }) {
+            Text("Enable Notifications")
+        }
+
+        var isSpinning = false
+        //var xTotalChange = 0f
+        //var yTotalChange = 0f
+        //var zTotalChange = 0f
+        val SPINNING_THRESHOLD = 1
+        val STOP_SPINNING_THRESHOLD = 0.2
+        val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        val accelerometerSensor = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+
+
+        val sensorEventListener = object : SensorEventListener {
+
+            override fun onAccuracyChanged(sensor: Sensor, accuracy: Int) {
+
+            }
+
+            override fun onSensorChanged(event: SensorEvent) {
+                if (event.sensor.type == Sensor.TYPE_ACCELEROMETER) {
+
+                    xChange = event.values[0]
+                    yChange = event.values[1]
+                    zChange = event.values[2]
+
+                    if (abs(xChange) > SPINNING_THRESHOLD || abs(yChange) > SPINNING_THRESHOLD || abs(zChange) > SPINNING_THRESHOLD) {
+                        isSpinning = true
+                        //xTotalChange += xChange
+                        //yTotalChange += yChange
+                        //zTotalChange += zChange
+                    } else if (isSpinning && abs(xChange) < STOP_SPINNING_THRESHOLD && abs(yChange) < STOP_SPINNING_THRESHOLD && abs(zChange) < STOP_SPINNING_THRESHOLD) {
+
+                        /*if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                            if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) {
+
+                                val notification = createNotificationWithSensorData(context, xTotalChange, yTotalChange, zTotalChange)
+                                notificationManagerCompat.notify(Constants.NOTIFICATION_ID, notification)
+                            } else {
+
+                            }
+                        } else {
+
+                            val notification = createNotificationWithSensorData(context, xTotalChange, yTotalChange, zTotalChange)
+                            notificationManagerCompat.notify(Constants.NOTIFICATION_ID, notification)
+                        }*/
+
+                        //xTotalChange = 0f
+                        //yTotalChange = 0f
+                        //zTotalChange = 0f
+                        isSpinning = false
+                    }
+                }
+            }
+        }
+        DisposableEffect(Unit) {
+            sensorManager.registerListener(sensorEventListener, accelerometerSensor, SensorManager.SENSOR_DELAY_UI)
+
+            onDispose {
+                sensorManager.unregisterListener(sensorEventListener)
+            }
+        }
+        Text("X-axis change: $xChange")
+        Text("Y-axis change: $yChange")
+        Text("Z-axis change: $zChange")
+
+
+
+
+
         /*Spacer(modifier = Modifier.height(8.dp))
         Button(onClick = { navController.navigate("settings") }) {
             Text("Settings")

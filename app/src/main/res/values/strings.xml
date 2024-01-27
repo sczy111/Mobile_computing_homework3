@@ -1,3 +1,7 @@
 <resources>
     <string name="app_name">Greeing-card</string>
+    <string name="channel_name">my_nofications</string>
+    <string name="channel_description">simple_notification</string>
+    <string name="notification_title">Simple_notification</string>
+    <string name="notification_message">Get to the app</string>
 </resources>
